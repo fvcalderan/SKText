@@ -95,7 +95,7 @@ void close_x(char *text[MAX_LINE_NO], int argc, char **argv)
     exit(1);
 }
 
-void load_buffer(char *text[MAX_LINE_NO], int *actual_line, int *actual_char,
+void load_buffer(char *text[MAX_LINE_NO], int *act_line, int *act_char,
                  int argc, char **argv)
 {
     int i = 0;
@@ -133,15 +133,15 @@ void load_buffer(char *text[MAX_LINE_NO], int *actual_line, int *actual_char,
     /* populate lines */
     while((fgets (buffer, MAX_LINE_LEN, fp))!= NULL) {
         text[i] = calloc (MAX_LINE_LEN, 1);
-        for (*actual_char = 0; *actual_char < MAX_LINE_LEN; (*actual_char)++)
-            if (buffer[*actual_char] == '\n') {
-                buffer[*actual_char] = '\0';
+        for (*act_char = 0; *act_char < MAX_LINE_LEN; (*act_char)++)
+            if (buffer[*act_char] == '\n') {
+                buffer[*act_char] = '\0';
                 break;
-            } else if (buffer[*actual_char] == '\0') {
+            } else if (buffer[*act_char] == '\0') {
                 break;
             }
-        (*actual_line)++;
-        *actual_char = 0;
+        (*act_line)++;
+        *act_char = 0;
         strcpy(text[i], buffer);
         i++;
     }
@@ -150,74 +150,75 @@ void load_buffer(char *text[MAX_LINE_NO], int *actual_line, int *actual_char,
     text[i] = i == 0 ? calloc (MAX_LINE_LEN, 1) : text[i];
 
     /* move cursor to the correct position */
-    *actual_line = *actual_line > 0 ? *actual_line - 1 : 0;
+    *act_line = *act_line > 0 ? *act_line - 1 : 0;
     for (i = 0; i < MAX_LINE_LEN; i++)
-        if (text[*actual_line][i] == '\0')
+        if (text[*act_line][i] == '\0')
             break;
-    *actual_char = i;
+    *act_char = i;
 
     fclose(fp);
 }
 
-void redraw(char *text[MAX_LINE_NO])
+void redraw(char *text[MAX_LINE_NO], unsigned long int scroll)
 {
     /* clear screen and load text */
     int i;
     XClearWindow(dis, win);
     for (i = 0; i < MAX_LINE_NO; i++)
         if (text[i] != NULL)
-            XDrawString(dis, win, gc, CHAR_WIDTH, CHAR_HEIGHT*(i+1),
+            XDrawString(dis, win, gc, CHAR_WIDTH, CHAR_HEIGHT*(i+1-scroll),
                         text[i], strlen(text[i]));
 }
 
 void write_char(char *text[MAX_LINE_NO], char kp_buffer[BUF_SIZE],
-                  int actual_line, int *actual_char)
+                  int act_line, int *act_char, unsigned long int scroll)
 {
-    strcat(text[actual_line], kp_buffer);
-    XDrawString(dis, win, gc, CHAR_WIDTH, CHAR_HEIGHT*(actual_line+1),
-                text[actual_line], strlen(text[actual_line]));
-    (*actual_char)++;
+    strcat(text[act_line], kp_buffer);
+    XDrawString(dis, win, gc, CHAR_WIDTH, CHAR_HEIGHT*(act_line+1-scroll),
+                text[act_line], strlen(text[act_line]));
+    (*act_char)++;
 }
 
-void write_tab(char *text[MAX_LINE_NO], int actual_line, int *actual_char)
+void write_tab(char *text[MAX_LINE_NO], int act_line, int *act_char)
 {
-    strcat(text[actual_line], TAB);
-    XDrawString(dis, win, gc, CHAR_WIDTH, CHAR_HEIGHT*(actual_line+1),
-                text[actual_line], strlen(text[actual_line]));
-    (*actual_char)+=4;
+    strcat(text[act_line], TAB);
+    XDrawString(dis, win, gc, CHAR_WIDTH, CHAR_HEIGHT*(act_line+1),
+                text[act_line], strlen(text[act_line]));
+    (*act_char)+=4;
 }
 
-void carriage_return(char *text[MAX_LINE_NO], int *actual_line,
-                     int *actual_char)
+void carriage_return(char *text[MAX_LINE_NO], int *act_line,
+                     int *act_char)
 {
-    (*actual_line)++;
-    *actual_char = 0;
-    if (text[*actual_line] == NULL)
-        text[*actual_line] = calloc (MAX_LINE_LEN, 1);
+    (*act_line)++;
+    *act_char = 0;
+    if (text[*act_line] == NULL)
+        text[*act_line] = calloc (MAX_LINE_LEN, 1);
 }
 
-void backspace(char *text[MAX_LINE_NO], int *actual_line, int *actual_char)
+void backspace(char *text[MAX_LINE_NO], int *act_line, int *act_char,
+               unsigned long int scroll)
 {
     int i;
-    if (*actual_char > 0) {                /* there are erasables */
-        text[*actual_line][*actual_char-1] = '\0';
-        (*actual_char)--;
-        redraw(text);
-    } else if (*actual_line > 0) {         /* there aren't erasables */
-        free(text[*actual_line]);
-        text[*actual_line] = NULL;
-        (*actual_line)--;
+    if (*act_char > 0) {                /* there are erasables */
+        text[*act_line][*act_char-1] = '\0';
+        (*act_char)--;
+        redraw(text, scroll);
+    } else if (*act_line > 0) {         /* there aren't erasables */
+        free(text[*act_line]);
+        text[*act_line] = NULL;
+        (*act_line)--;
         for (i = 0; i < MAX_LINE_LEN; i++) /* move cursor to the correct pos */
-            if (text[*actual_line][i] == '\0')
+            if (text[*act_line][i] == '\0')
                 break;
-        *actual_char = i;
+        *act_char = i;
     }
 }
 
-void draw_cursor(int actual_line, int actual_char)
+void draw_cursor(int act_line, int act_char, unsigned long int scroll)
 {
-    XDrawString(dis, win, gc, CHAR_WIDTH*(actual_char+1),
-                CHAR_HEIGHT*(actual_line+1), "|", 1);
+    XDrawString(dis, win, gc, CHAR_WIDTH*(act_char+1),
+                CHAR_HEIGHT*(act_line+1-scroll), "|", 1);
 }
 
 int main (int argc, char **argv)
@@ -226,11 +227,12 @@ int main (int argc, char **argv)
     KeySym key;                         /* handle KeyPresses */
     char kp_buffer[BUF_SIZE];           /* char buffer for KeyPress events */
     char *text[MAX_LINE_NO] = { NULL }; /* actual text buffer */
-    int actual_line = 0;                /* current line number */
-    int actual_char = 0;                /* current row number */
+    int act_line = 0;                   /* current line number */
+    int act_char = 0;                   /* current row number */
+    unsigned long int scroll = 0;
 
     init_x();
-    load_buffer(text, &actual_line, &actual_char, argc, argv);
+    load_buffer(text, &act_line, &act_char, argc, argv);
 
     while(1) {                      /* keeps checking for events */
         XNextEvent(dis, &event);
@@ -239,24 +241,35 @@ int main (int argc, char **argv)
             XLookupString(&event.xkey, kp_buffer, BUF_SIZE, &key, 0) == 1) {
             switch (kp_buffer[0]) {
                 case 8:             /* bksp */
-                    backspace(text, &actual_line, &actual_char);
+                    backspace(text, &act_line, &act_char, scroll);
                     break;
                 case 9:             /* tab */
-                    write_tab(text, actual_line, &actual_char);
+                    write_tab(text, act_line, &act_char);
                     break;
                 case 13:            /* enter */
-                    carriage_return(text, &actual_line, &actual_char);
+                    carriage_return(text, &act_line, &act_char);
                     break;
                 case 27:            /* esc */
                     close_x(text, argc, argv);
                     break;
-                case 32 ... 126:     /* from space to right curly bracket */
-                    write_char(text, kp_buffer, actual_line, &actual_char);
+                case 32 ... 126:    /* from space to right curly bracket */
+                    write_char(text, kp_buffer, act_line, &act_char, scroll);
                     break;
             }
         }
-        redraw(text);
-        draw_cursor(actual_line, actual_char);
+        /* check for mouse scroll */
+        if (event.type == ButtonPress) {
+            switch (event.xbutton.button) {
+                case Button4:
+                    scroll = scroll > 0 ? scroll - 1 : 0;
+                    break;
+                case Button5:
+                    scroll++;
+                    break;
+            }
+        }
+        redraw(text, scroll);
+        draw_cursor(act_line, act_char, scroll);
     }
     free_text(text);
     return 0;
