@@ -1,5 +1,5 @@
 CC 			= gcc
-CFLAGS 		= -Wall
+CFLAGS 		= -Wall -Wextra
 LDFLAGS 	= -lX11
 OBJFILES 	= accent.o bufferIO.o SKText.o
 TARGET = SKText
