@@ -43,17 +43,6 @@ void init_x()
     XMapRaised(dis, win);
 }
 
-void free_text(char *text[MAX_LINE_NO])
-{
-    int i;
-    for (i = 0; i < MAX_LINE_NO; i++)
-        if (text[i] != NULL)
-            free(text[i]);
-        else
-            break;
-    free(text);
-}
-
 void close_x(char *text[MAX_LINE_NO], int argc, char **argv)
 {
     /* save the buffer */
@@ -77,10 +66,10 @@ void redraw(char *text[MAX_LINE_NO], unsigned long int scroll)
                         text[i], strlen(text[i]));
 }
 
-void write_char(char *text[MAX_LINE_NO], char kp_buffer[BUF_SIZE],
+void write_char(char *text[MAX_LINE_NO], unsigned char kp_buffer[BUF_SIZE],
                   int act_line, int *act_char, unsigned long int scroll)
 {
-    strcat(text[act_line], kp_buffer);
+    strcat(text[act_line], (char *)kp_buffer);
     XDrawString(dis, win, gc, CHAR_WIDTH, CHAR_HEIGHT*(act_line+1-scroll),
                 text[act_line], strlen(text[act_line]));
     (*act_char)++;
@@ -159,7 +148,7 @@ int main (int argc, char **argv)
         XNextEvent(dis, &event);
 
         if (event.type == KeyPress &&
-            XLookupString(&event.xkey, kp_buffer, BUF_SIZE, &key, 0) == 1) {
+            XLookupString(&event.xkey, (char *)kp_buffer, BUF_SIZE, &key, 0) == 1) {
             switch (kp_buffer[0]) {
                 case 94: case 96: case 126: case 168: case 180: /* accents */
                     temp_accent = kp_buffer[0];
@@ -190,8 +179,8 @@ int main (int argc, char **argv)
                 default:
                 /* everything else */
                     if (temp_accent > 0) {
-                        write_char(text, (char[]){temp_accent, 0}, act_line,
-                                   &act_char, scroll);
+                        write_char(text, (unsigned char[]){temp_accent, 0},
+                                   act_line, &act_char, scroll);
                     }
                     write_char(text, kp_buffer, act_line, &act_char, scroll);
                     temp_accent = 0;

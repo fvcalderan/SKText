@@ -1,5 +1,16 @@
 #include "bufferIO.h"
 
+void free_text(char *text[MAX_LINE_NO])
+{
+    /* free text buffer line pointers */
+    int i;
+    for (i = 0; i < MAX_LINE_NO; i++)
+        if (text[i] != NULL)
+            free(text[i]);
+        else
+            break;
+}
+
 void load_buffer(char *text[MAX_LINE_NO], int *act_line, int *act_char,
         int argc, char **argv)
 {
@@ -83,7 +94,7 @@ void save_buffer(char *text[MAX_LINE_NO], int argc, char **argv)
     for (i = 0; i < MAX_LINE_NO; i++)
         if (text[i] != NULL) {
             strcat(text[i], "\n");
-            fprintf(fp, text[i]);
+            fprintf(fp, "%s", text[i]);
         } else {
             break;
         }
