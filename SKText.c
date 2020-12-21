@@ -15,8 +15,8 @@ See the full license inside LICENSE.txt file */
 #include <X11/Xos.h>
 
 /* custom lib headers */
-#include "accent.h"
 #include "global.h"
+#include "accent.h"
 #include "bufferIO.h"
 
 /* X variables */
@@ -123,7 +123,7 @@ void write_accent(char *text[MAX_LINE_NO], unsigned char last_char,
                   unsigned long int scroll)
 {
     unsigned char letter = get_accented_char(kp_buffer[0], last_char);
-    strcat(text[act_line], (char[2]){letter, 0});
+    strcat(text[act_line], (char[]){letter, 0});
     XDrawString(dis, win, gc, CHAR_WIDTH, CHAR_HEIGHT*(act_line+1-scroll),
                 text[act_line], strlen(text[act_line]));
     (*act_char)++;
@@ -137,18 +137,17 @@ int main (int argc, char **argv)
     char *text[MAX_LINE_NO] = { NULL }; /* actual text buffer */
     int act_line = 0;                   /* current line number */
     int act_char = 0;                   /* current row number */
-    unsigned long int scroll = 0;
-    unsigned char temp_accent = 0;
-    unsigned char last_char = 0;
+    unsigned long int scroll = 0;       /* scroll offset */
+    unsigned char temp_accent = 0;      /* temp variable to store accent */
+    unsigned char last_char = 0;        /* temp variable to store last char */
 
     init_x();
     load_buffer(text, &act_line, &act_char, argc, argv);
 
     while(1) {                      /* keeps checking for events */
         XNextEvent(dis, &event);
-
         if (event.type == KeyPress &&
-            XLookupString(&event.xkey, (char *)kp_buffer, BUF_SIZE, &key, 0) == 1) {
+            XLookupString(&event.xkey,(char*)kp_buffer,BUF_SIZE,&key,0) == 1) {
             switch (kp_buffer[0]) {
                 case 94: case 96: case 126: case 168: case 180: /* accents */
                     temp_accent = kp_buffer[0];
@@ -176,8 +175,7 @@ int main (int argc, char **argv)
                                  kp_buffer, scroll);
                     temp_accent = 0;
                     break;
-                default:
-                /* everything else */
+                default:            /* everything else */
                     if (temp_accent > 0) {
                         write_char(text, (unsigned char[]){temp_accent, 0},
                                    act_line, &act_char, scroll);
