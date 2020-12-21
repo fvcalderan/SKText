@@ -14,18 +14,10 @@ See the full license inside LICENSE.txt file */
 #include <X11/Xutil.h>
 #include <X11/Xos.h>
 
-/* include standard headers */
-#include <stdio.h>
-#include <stdlib.h>
-
-/* defines */
-#define BUF_SIZE        256
-#define MAX_LINE_LEN    256
-#define MAX_LINE_NO     65536
-#define CHAR_WIDTH      6
-#define CHAR_HEIGHT     16
-#define MAX_FN_SIZE     512
-#define TAB             "    "
+/* custom lib headers */
+#include "accent.h"
+#include "global.h"
+#include "bufferIO.h"
 
 /* X variables */
 Display *dis;
@@ -64,99 +56,14 @@ void free_text(char *text[MAX_LINE_NO])
 
 void close_x(char *text[MAX_LINE_NO], int argc, char **argv)
 {
-    int i;
-
-    /* verify args */
-    char file[MAX_FN_SIZE] = "saved_buffer.txt";
-    if (argc > 1)
-        strcpy(file, argv[1]);
-
-    /* save buffer to file */
-    FILE *fp = fopen(file, "w+");
-    if (fp == NULL) {
-        printf("Failed to open buffer\n");
-        free_text(text);
-        exit(1);
-    }
-    for (i = 0; i < MAX_LINE_NO; i++)
-        if (text[i] != NULL) {
-            strcat(text[i], "\n");
-            fprintf(fp, text[i]);
-        } else {
-            break;
-        }
-    fclose(fp);
-    free_text(text);
+    /* save the buffer */
+    save_buffer(text, argc, argv);
 
     /* destroy X window and exit */
     XFreeGC(dis, gc);
     XDestroyWindow(dis, win);
     XCloseDisplay(dis);
     exit(1);
-}
-
-void load_buffer(char *text[MAX_LINE_NO], int *act_line, int *act_char,
-                 int argc, char **argv)
-{
-    int i = 0;
-
-    /* load file to buffer */
-    FILE *fp;
-
-    /* verify args - if none specified, create/edit saved_buffer.txt */
-    char file[MAX_FN_SIZE] = "saved_buffer.txt";
-    if (argc > 1) {
-        strcpy(file, argv[1]);
-    } else {
-        fp = fopen(file, "w+");
-        if (fp == NULL) {
-            printf("Failed to open buffer\n");
-            exit(1);
-        }
-        text[i] = calloc (MAX_LINE_LEN, 1);
-        return;
-    }
-
-    fp = fopen(file, "r+");
-    char buffer[MAX_LINE_LEN];
-    if (fp == NULL) {
-        /* if file doesn't exist, create it */
-        fp = fopen(file, "w+");
-        if (fp == NULL) {
-            printf("Failed to open buffer\n");
-            exit(1);
-        }
-        text[i] = calloc (MAX_LINE_LEN, 1);
-        return;
-    }
-
-    /* populate lines */
-    while((fgets (buffer, MAX_LINE_LEN, fp))!= NULL) {
-        text[i] = calloc (MAX_LINE_LEN, 1);
-        for (*act_char = 0; *act_char < MAX_LINE_LEN; (*act_char)++)
-            if (buffer[*act_char] == '\n') {
-                buffer[*act_char] = '\0';
-                break;
-            } else if (buffer[*act_char] == '\0') {
-                break;
-            }
-        (*act_line)++;
-        *act_char = 0;
-        strcpy(text[i], buffer);
-        i++;
-    }
-
-    /* allocate at least one line if the file is empty */
-    text[i] = i == 0 ? calloc (MAX_LINE_LEN, 1) : text[i];
-
-    /* move cursor to the correct position */
-    *act_line = *act_line > 0 ? *act_line - 1 : 0;
-    for (i = 0; i < MAX_LINE_LEN; i++)
-        if (text[*act_line][i] == '\0')
-            break;
-    *act_char = i;
-
-    fclose(fp);
 }
 
 void redraw(char *text[MAX_LINE_NO], unsigned long int scroll)
@@ -218,18 +125,32 @@ void backspace(char *text[MAX_LINE_NO], int *act_line, int *act_char,
 void draw_cursor(int act_line, int act_char, unsigned long int scroll)
 {
     XDrawString(dis, win, gc, CHAR_WIDTH*(act_char+1),
-                CHAR_HEIGHT*(act_line+1-scroll), "|", 1);
+                CHAR_HEIGHT*(act_line+1-scroll), (char[]){2,0}, 1);
+}
+
+void write_accent(char *text[MAX_LINE_NO], unsigned char last_char,
+                  int act_line, int *act_char,
+                  unsigned char kp_buffer[BUF_SIZE],
+                  unsigned long int scroll)
+{
+    unsigned char letter = get_accented_char(kp_buffer[0], last_char);
+    strcat(text[act_line], (char[2]){letter, 0});
+    XDrawString(dis, win, gc, CHAR_WIDTH, CHAR_HEIGHT*(act_line+1-scroll),
+                text[act_line], strlen(text[act_line]));
+    (*act_char)++;
 }
 
 int main (int argc, char **argv)
 {
     XEvent event;                       /* XEvent declaration */
     KeySym key;                         /* handle KeyPresses */
-    char kp_buffer[BUF_SIZE];           /* char buffer for KeyPress events */
+    unsigned char kp_buffer[BUF_SIZE];  /* char buffer for KeyPress events */
     char *text[MAX_LINE_NO] = { NULL }; /* actual text buffer */
     int act_line = 0;                   /* current line number */
     int act_char = 0;                   /* current row number */
     unsigned long int scroll = 0;
+    unsigned char temp_accent = 0;
+    unsigned char last_char = 0;
 
     init_x();
     load_buffer(text, &act_line, &act_char, argc, argv);
@@ -240,22 +161,43 @@ int main (int argc, char **argv)
         if (event.type == KeyPress &&
             XLookupString(&event.xkey, kp_buffer, BUF_SIZE, &key, 0) == 1) {
             switch (kp_buffer[0]) {
+                case 94: case 96: case 126: case 168: case 180: /* accents */
+                    temp_accent = kp_buffer[0];
+                    break;
                 case 8:             /* bksp */
                     backspace(text, &act_line, &act_char, scroll);
+                    temp_accent = 0;
                     break;
                 case 9:             /* tab */
                     write_tab(text, act_line, &act_char);
+                    temp_accent = 0;
                     break;
                 case 13:            /* enter */
                     carriage_return(text, &act_line, &act_char);
+                    temp_accent = 0;
                     break;
                 case 27:            /* esc */
+                    temp_accent = 0;
                     close_x(text, argc, argv);
                     break;
-                case 32 ... 126:    /* from space to right curly bracket */
+                case 'a': case 'A': case 'e': case 'E': case 'i': case 'I':
+                case 'o': case 'O': case 'u': case 'U': case 'y': case 'Y':
+                case 'n': case 'N': /* accentable characters */
+                    write_accent(text, last_char, act_line, &act_char,
+                                 kp_buffer, scroll);
+                    temp_accent = 0;
+                    break;
+                default:
+                /* everything else */
+                    if (temp_accent > 0) {
+                        write_char(text, (char[]){temp_accent, 0}, act_line,
+                                   &act_char, scroll);
+                    }
                     write_char(text, kp_buffer, act_line, &act_char, scroll);
+                    temp_accent = 0;
                     break;
             }
+            last_char = kp_buffer[0];
         }
         /* check for mouse scroll */
         if (event.type == ButtonPress) {
