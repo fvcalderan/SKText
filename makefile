@@ -1,7 +1,7 @@
 CC 			= gcc
 CFLAGS 		= -Wall -Wextra
 LDFLAGS 	= -lX11
-OBJFILES 	= accent.o bufferIO.o SKText.o
+OBJFILES 	= accent.o bufferIO.o draw_utils.o insertmode.o SKText.o
 TARGET = SKText
 
 all: $(TARGET)

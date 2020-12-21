@@ -11,8 +11,8 @@ void free_text(char *text[MAX_LINE_NO])
             break;
 }
 
-void load_buffer(char *text[MAX_LINE_NO], int *act_line, int *act_char,
-        int argc, char **argv)
+void load_buffer(char *text[MAX_LINE_NO], long unsigned int *act_line,
+        long unsigned int *act_char, int argc, char **argv)
 {
     int i = 0;
 
